@@ -25,11 +25,11 @@
 
 (e/def session-id (e/server (get-in e/*http-request* [:headers "sec-websocket-key"])))
 
-(e/defn Toggle-play [audio]
+(e/defn Toggle-play []
   (if (and (:interacted-with-document? client-state) ; Respect browser autoplay policy
-           (:playing? server-state))
-    (.play audio)
-    (.pause audio)))
+           (:playing? server-state)) 
+    (.play (d/by-id "audio"))
+    (.pause (d/by-id "audio"))))
 
 (e/defn Is-master-user? []
   (= (:master-user server-state) session-id))
@@ -41,7 +41,7 @@
 (e/defn Audio []
   "Audio element (invisible)"
   (d/audio
-   (Toggle-play. d/node)
+   (Toggle-play.)
    (d/props {:src "/avril-14th.mp3"
              :controls true
              :id "audio"
@@ -49,7 +49,7 @@
              :style {:display "none"}})
    (d/on "play"
          (e/fn [e]
-           (set! (.-currentTime (d/by-id "audio")) (:current-time server-state))))
+           (set! (.-currentTime d/node) (:current-time server-state))))
    (d/on "timeupdate"
          (e/fn [e]
            (let [time (.. e -target -currentTime)]
@@ -94,10 +94,13 @@
 (e/defn Toggle-play-button []
   (ui/button
    (e/fn []
-     (e/server (swap! !server-state assoc
-                      :playing? (not (:playing? @!server-state))
-                      :master-user session-id))
-     (Toggle-play. (d/by-id "audio")))
+     (let [new-state (not (:playing? server-state))]
+       (when new-state
+         (swap! !client-state assoc :muted? false))
+       (e/server (swap! !server-state assoc
+                        :playing? new-state
+                        :master-user session-id))
+       (Toggle-play.)))
    (d/props {:disabled (not (Allowed-control?.))})
    (d/text (if (:playing? server-state) "Pause" "Play"))))
 
@@ -152,7 +155,8 @@
    (when (not (get (:users server-state) (:master-user server-state)))
      (println "resetting master user")
      (swap! !server-state assoc :master-user session-id))
-   (e/on-unmount (fn []
-                   (swap! !server-state update :users dissoc session-id)
-                   (when (empty? (:users @!server-state))
-                     (swap! !server-state assoc :playing? false))))))
+   (e/on-unmount
+    (fn []
+      (swap! !server-state update :users dissoc session-id)
+      (when (empty? (:users @!server-state))
+        (swap! !server-state assoc :playing? false))))))
