@@ -1,6 +1,9 @@
-app = "electric-starter-app"
+# fly.toml file generated for electric-media-player on 2023-04-23T15:56:21+02:00
+
+app = "electric-media-player"
 kill_signal = "SIGINT"
 kill_timeout = 5
+primary_region = "ams"
 processes = []
 
 [env]
